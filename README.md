@@ -42,6 +42,7 @@ All code is designed to be **beginner-friendly** yet **technically accurate**, m
 This repository covers **5 critical vulnerability classes** commonly found in Solana programs:
 
 ### 1. Missing Account Validation
+
 **Risk Level:** 🔴 Critical
 
 The program accepts raw `AccountInfo` without verifying ownership, type, or expected derivation. Attackers can substitute arbitrary accounts to corrupt state or escalate privileges.
@@ -55,6 +56,7 @@ The program accepts raw `AccountInfo` without verifying ownership, type, or expe
 📖 [Full Tutorial](examples/01-missing-account-validation/README.md) | 💻 [Vulnerable Code](examples/01-missing-account-validation/example1.rs) | ✅ [Fixed Code](examples/01-missing-account-validation/example1.fix.rs)
 
 ### 2. Incorrect Authority Check
+
 **Risk Level:** 🔴 Critical
 
 The program requires a signer but never verifies if that signer is actually authorized to perform the action. Any wallet can modify critical protocol parameters.
@@ -68,6 +70,7 @@ The program requires a signer but never verifies if that signer is actually auth
 📖 [Full Tutorial](examples/02-incorrect-authority-check/README.md) | 💻 [Vulnerable Code](examples/02-incorrect-authority-check/example2.rs) | ✅ [Fixed Code](examples/02-incorrect-authority-check/example2.fix.rs)
 
 ### 3. Unsafe Arithmetic
+
 **Risk Level:** 🟠 High
 
 The program uses standard arithmetic operators (`-`, `+`, `*`) without overflow checks. In release mode, overflow wraps silently, leading to balance corruption or infinite minting.
@@ -81,6 +84,7 @@ The program uses standard arithmetic operators (`-`, `+`, `*`) without overflow 
 📖 [Full Tutorial](examples/03-unsafe-arithmetic/README.md) | 💻 [Vulnerable Code](examples/03-unsafe-arithmetic/example3.rs) | ✅ [Fixed Code](examples/03-unsafe-arithmetic/example3.fix.rs)
 
 ### 4. CPI Reentrancy
+
 **Risk Level:** 🟠 High
 
 The program calls external programs (CPI) before updating internal state. A malicious external program can re-enter and exploit stale state to drain funds.
@@ -94,6 +98,7 @@ The program calls external programs (CPI) before updating internal state. A mali
 📖 [Full Tutorial](examples/04-cpi-reentrancy/README.md) | 💻 [Vulnerable Code](examples/04-cpi-reentrancy/example4.rs) | ✅ [Fixed Code](examples/04-cpi-reentrancy/example4.fix.rs)
 
 ### 5. Signer Privilege Escalation
+
 **Risk Level:** 🔴 Critical
 
 The program validates that an account is a signer but doesn't verify that the signer's identity matches an authorized role stored in program state. Any signer can escalate privileges.
@@ -126,7 +131,7 @@ vulnerable.so/
 │   ├── 02-incorrect-authority-check/
 │   ├── 03-unsafe-arithmetic/
 │   ├── 04-cpi-reentrancy/
-│   ├── 05-signer-privilege-escalation/
+│   └── 05-signer-privilege-escalation/
 │
 ├── programs/                   # Full Anchor programs (deployable)
 │   ├── 01a-missing-account-validation-vuln/
@@ -153,6 +158,7 @@ vulnerable.so/
     │   └── 05-signer-privilege-attack.ts
     └── cpi-reentrancy.ts     # CPI reentrancy test
 ```
+
 ## Setup Instructions
 
 ### Prerequisites
@@ -166,44 +172,44 @@ vulnerable.so/
 ### Installation
 
 1. **Clone the repository:**
-   
+
+```bash
+git clone https://github.com/CYBWithFlourish/vulnerable.so.git
+cd vulnerable.so
 ```
-bash
-   git clone https://github.com/CYBWithFlourish/vulnerable.so.git
-   cd vulnerable.so
-   
-```
+
 2. **Build all programs:**
-   ```bash
-   anchor build
-   
+
+```bash
+anchor build
 ```
-   This compiles all 15 programs (5 vulnerabilities × 3 versions each).
+
+This compiles all 15 programs (5 vulnerabilities × 3 versions each).
 
 3. **Install TypeScript dependencies:**
-   
+
 ```bash
-   yarn install
-   
+yarn install
 ```
 
 4. **Verify build artifacts:**
-   ```bash
-   ls -l target/deploy/*.so
-   ls -l target/idl/*.json
-   
+
+```bash
+ls -l target/deploy/*.so
+ls -l target/idl/*.json
 ```
+
 ### Anchor Configuration
 
 The project uses Anchor's workspace feature to manage multiple programs. Key configuration in `Anchor.toml`:
 
-```
-toml
+```toml
 [programs.devnet]
 cpi-reentrancy-vuln = "4tZXygwa8iqkS7AGGcqWptSzT8PGgQRYM3dAXCuF1rKB"
 cpi-reentrancy-fix = "H8sBVtiyV2ZqWsfpZq2R7oKkyN1UQg61ddpxXsD5ouAQ"
 cpi-reentrancy-attacker = "2SuAQ3vLxMomnMZP7bAHaHJXU5iyMDyxB2K5TbUnFZWH"
 ```
+
 Programs are defined in the workspace `Cargo.toml` with shared dependencies:
 - `anchor-lang = "0.32.1"`
 - `pinocchio = "1.52"`
@@ -213,32 +219,32 @@ Programs are defined in the workspace `Cargo.toml` with shared dependencies:
 Pinocchio is a fast, lightweight Solana testing library included as a workspace dependency.
 
 1. **Add to your program's `Cargo.toml`:**
-   
+
+```toml
+[dependencies]
+pinocchio = { workspace = true }
 ```
-toml
-   [dependencies]
-   pinocchio = { workspace = true }
-   
-```
+
 2. **Write tests using Pinocchio:**
-   ```rust
-   #[cfg(test)]
-   mod tests {
-       use pinocchio::*;
-       
-       #[test]
-       fn test_my_instruction() {
-           // Your test code
-       }
-   }
-   
+
+```rust
+#[cfg(test)]
+mod tests {
+    use pinocchio::*;
+    
+    #[test]
+    fn test_my_instruction() {
+        // Your test code
+    }
+}
 ```
 
 3. **Run tests:**
-   ```bash
-   cargo test
-   
+
+```bash
+cargo test
 ```
+
 📖 See [docs/PINOCCHIO.md](docs/PINOCCHIO.md) for complete usage guide and examples.
 
 ## Testing Guide
@@ -246,8 +252,8 @@ toml
 ### Method 1: Anchor Tests (Full Validator)
 
 Run the complete test suite with a local validator:
-```
-bash
+
+```bash
 # Start local validator in background
 solana-test-validator &
 
@@ -257,6 +263,7 @@ anchor test
 # Run specific test file
 anchor test -- --grep "CPI Reentrancy"
 ```
+
 **Pros:** Full Solana environment, realistic simulation  
 **Cons:** Slow startup (~30 seconds), resource intensive
 
@@ -264,8 +271,7 @@ anchor test -- --grep "CPI Reentrancy"
 
 Test individual programs using Pinocchio as a library dependency:
 
-```
-bash
+```bash
 # Run all Pinocchio tests
 cargo test
 
@@ -275,9 +281,10 @@ cargo test --package missing-account-validation-fix
 # Run with output
 cargo test -- --nocapture
 ```
+
 **Example Pinocchio Test:**
-```
-rust
+
+```rust
 #[cfg(test)]
 mod tests {
     use pinocchio::pubkey::Pubkey;
@@ -290,6 +297,7 @@ mod tests {
     }
 }
 ```
+
 **Pros:** Instant startup, lightweight, fast iteration, integrated with `cargo test`  
 **Cons:** Limited runtime features, simplified environment
 
@@ -299,8 +307,7 @@ mod tests {
 
 Run the attack demonstration scripts:
 
-```
-bash
+```bash
 # Missing account substitution attack
 ts-node scripts/attacks/01-missing-account-attack.ts
 
@@ -313,6 +320,7 @@ ts-node scripts/attacks/03-unsafe-arithmetic-attack.ts
 # Signer privilege escalation attack
 ts-node scripts/attacks/05-signer-privilege-attack.ts
 ```
+
 Each script demonstrates:
 1. How to construct the malicious transaction
 2. Why the vulnerable version accepts it
@@ -366,8 +374,7 @@ Runs when markdown files are modified.
 
 Before pushing changes, run tests locally to catch issues early:
 
-```
-bash
+```bash
 # Build all programs
 anchor build
 
@@ -387,6 +394,7 @@ yarn attack:05
 # Or run manually with ts-node
 ts-node scripts/attacks/01-missing-account-attack.ts
 ```
+
 ### Understanding CI Results
 
 The CI system provides clear, educational output:
@@ -413,6 +421,7 @@ The CI system provides clear, educational output:
 
 ✅ All security tests passed
 ```
+
 **Expected Behavior:**
 - ✅ **Vulnerable versions**: Attacks succeed (demonstrating the vulnerability)
 - ✅ **Fixed versions**: Attacks are blocked (demonstrating the security fix)
@@ -514,12 +523,11 @@ We welcome contributions that enhance the educational value of this repository!
 
 1. **Fork the repository**
 2. **Create a feature branch:**
-   
+
+```bash
+git checkout -b feature/new-vulnerability-example
 ```
-bash
-   git checkout -b feature/new-vulnerability-example
-   
-```
+
 3. **Follow the existing structure:**
    - Vulnerable version: `example{n}.rs`
    - Fixed version: `example{n}.fix.rs`
@@ -527,13 +535,12 @@ bash
    - Inline comments explaining each step
 
 4. **Test your code:**
-   
+
+```bash
+anchor build
+anchor test
 ```
-bash
-   anchor build
-   anchor test
-   
-```
+
 5. **Submit a pull request** with:
    - Clear description of the vulnerability
    - Educational value explanation
