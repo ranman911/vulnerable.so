@@ -1,0 +1,50 @@
+{
+  "ignorePatterns": [
+    {
+      "pattern": "^https://docs.solana.com/"
+    },
+    {
+      "pattern": "^https://www.anchor-lang.com/"
+    },
+    {
+      "pattern": "^https://github.com/solana-labs/solana-program-library"
+    },
+    {
+      "pattern": "^https://github.com/coral-xyz/sealevel-attacks"
+    },
+    {
+      "pattern": "^https://consensys.github.io/"
+    },
+    {
+      "pattern": "^https://solanacookbook.com/"
+    },
+    {
+      "pattern": "^https://solana.stackexchange.com/"
+    },
+    {
+      "pattern": "^https://blockthreat.substack.com/"
+    },
+    {
+      "pattern": "^https://github.com/.*-sec/"
+    },
+    {
+      "pattern": "^https://github.com/trailofbits/"
+    },
+    {
+      "pattern": "^https://github.com/solana-developers/"
+    },
+    {
+      "pattern": "^https://github.com/neodyme-labs/"
+    },
+    {
+      "pattern": "^LICENSE$"
+    }
+  ],
+  "replacementPatterns": [],
+  "httpHeaders": [],
+  "timeout": "20s",
+  "retryOn429": true,
+  "retryCount": 3,
+  "fallbackRetryDelay": "30s",
+  "aliveStatusCodes": [200, 206]
+}

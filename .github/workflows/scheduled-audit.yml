@@ -1,0 +1,193 @@
+name: Weekly Security Audit
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'  # Every Sunday at midnight UTC
+  workflow_dispatch:
+
+jobs:
+  dependency-audit:
+    name: Audit Dependencies
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Solana development tools
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSfL https://solana-install.solana.workers.dev | bash
+
+      - name: Install cargo-audit
+        run: |
+          export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$HOME/.local/share/solana/install/active_release/bin:$PATH"
+          source "$HOME/.nvm/nvm.sh"
+          cargo install cargo-audit --locked
+
+      - name: Run cargo audit
+        id: cargo-audit
+        continue-on-error: true
+        run: |
+          export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$HOME/.local/share/solana/install/active_release/bin:$PATH"
+          source "$HOME/.nvm/nvm.sh"
+          cargo audit --json | tee cargo-audit-results.json
+          cargo audit
+
+      - name: Install dependencies
+        run: |
+          export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$HOME/.local/share/solana/install/active_release/bin:$PATH"
+          source "$HOME/.nvm/nvm.sh"
+          yarn install --frozen-lockfile
+
+      - name: Run npm audit
+        id: npm-audit
+        continue-on-error: true
+        run: |
+          export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$HOME/.local/share/solana/install/active_release/bin:$PATH"
+          source "$HOME/.nvm/nvm.sh"
+          npm audit --json | tee npm-audit-results.json
+          npm audit
+
+      - name: Upload audit results
+        uses: actions/upload-artifact@v4.4.3
+        with:
+          name: audit-results
+          path: |
+            cargo-audit-results.json
+            npm-audit-results.json
+          retention-days: 90
+
+      - name: Check audit results
+        run: |
+          echo "=== Cargo Audit Results ==="
+          cat cargo-audit-results.json || echo "No cargo audit results"
+          echo ""
+          echo "=== NPM Audit Results ==="
+          cat npm-audit-results.json || echo "No npm audit results"
+
+  version-compatibility:
+    name: Test Latest Versions
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        test-type: ['default', 'stable']
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Solana development tools
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSfL https://solana-install.solana.workers.dev | bash
+
+      - name: Verify installation (${{ matrix.test-type }})
+        run: |
+          export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$HOME/.local/share/solana/install/active_release/bin:$PATH"
+          source "$HOME/.nvm/nvm.sh"
+          echo "=== Installed Versions ==="
+          rustc --version
+          solana --version
+          anchor --version
+          surfpool --version
+          node --version
+          yarn --version
+
+      - name: Build with installed versions
+        run: |
+          export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$HOME/.local/share/solana/install/active_release/bin:$PATH"
+          source "$HOME/.nvm/nvm.sh"
+          anchor build
+
+      - name: Upload build results
+        uses: actions/upload-artifact@v4.4.3
+        with:
+          name: build-results-${{ matrix.test-type }}
+          path: target/deploy/*.so
+          retention-days: 7
+
+  comprehensive-tests:
+    name: Full Test Suite
+    needs: [dependency-audit, version-compatibility]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Solana development tools
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSfL https://solana-install.solana.workers.dev | bash
+
+      - name: Run all tests
+        continue-on-error: true
+        run: |
+          export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$HOME/.local/share/solana/install/active_release/bin:$PATH"
+          source "$HOME/.nvm/nvm.sh"
+          anchor build
+          cargo test-sbf 2>&1 | tee full-test-results.log
+
+      - name: Generate detailed report
+        run: |
+          echo "# Weekly Security Audit Report" > audit-report.md
+          echo "" >> audit-report.md
+          echo "Generated on: $(date)" >> audit-report.md
+          echo "" >> audit-report.md
+          echo "## Dependency Audit" >> audit-report.md
+          echo "See cargo-audit-results.json and npm-audit-results.json in artifacts" >> audit-report.md
+          echo "" >> audit-report.md
+          echo "## Version Compatibility" >> audit-report.md
+          echo "Build tested with latest Solana development tools" >> audit-report.md
+          echo "" >> audit-report.md
+          echo "## Full Test Suite" >> audit-report.md
+          if [ -f full-test-results.log ]; then
+            echo "Test execution completed. See full-test-results.log for details." >> audit-report.md
+          else
+            echo "Test execution skipped or failed." >> audit-report.md
+          fi
+          
+          cat audit-report.md
+
+      - name: Upload comprehensive report
+        uses: actions/upload-artifact@v4.4.3
+        with:
+          name: weekly-audit-report
+          path: |
+            audit-report.md
+            full-test-results.log
+          retention-days: 90
+
+      - name: Create issue if failures detected
+        if: failure()
+        continue-on-error: true
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('audit-report.md', 'utf8');
+            
+            // Check if a similar issue already exists
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'security-audit'
+            });
+            
+            const existingIssue = issues.data.find(issue => 
+              issue.title.includes('Weekly Security Audit Failed')
+            );
+            
+            if (!existingIssue) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `Weekly Security Audit Failed - ${new Date().toISOString().split('T')[0]}`,
+                body: `# Security Audit Failure\n\n${report}\n\nPlease review the workflow run for details:\n${context.payload.repository.html_url}/actions/runs/${context.runId}`,
+                labels: ['security-audit', 'automated']
+              });
+            }

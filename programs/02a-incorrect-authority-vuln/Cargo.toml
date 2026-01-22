@@ -1,0 +1,16 @@
+[package]
+name = "incorrect-authority-vuln"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "incorrect_authority_vuln"
+
+[dependencies]
+anchor-lang = { workspace = true }
+pinocchio = "0.10.1"
+
+[features]
+idl-build = ["anchor-lang/idl-build"]
+no-entrypoint = []

@@ -1,0 +1,32 @@
+{
+  "name": "solproject-attack-demos",
+  "version": "1.0.0",
+  "description": "Educational attack demonstration scripts for Solana security vulnerabilities",
+  "main": "index.js",
+  "scripts": {
+    "attack:01": "ts-node scripts/attacks/01-missing-account-attack.ts",
+    "attack:02": "ts-node scripts/attacks/02-incorrect-authority-attack.ts",
+    "attack:03": "ts-node scripts/attacks/03-unsafe-arithmetic-attack.ts",
+    "attack:04": "ts-node scripts/attacks/04-cpi-reentrancy.ts",
+    "attack:05": "ts-node scripts/attacks/05-signer-privilege-attack.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "solana",
+    "security",
+    "anchor",
+    "blockchain",
+    "education"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@coral-xyz/anchor": "0.32.1",
+    "@solana/web3.js": "^1.95.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}

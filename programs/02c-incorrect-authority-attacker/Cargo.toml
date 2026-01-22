@@ -1,0 +1,20 @@
+[package]
+name = "incorrect-authority-attacker"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "incorrect_authority_attacker"
+
+[dependencies]
+anchor-lang = { workspace = true }
+pinocchio = "0.10.1"
+
+[features]
+idl-build = ["anchor-lang/idl-build"]
+
+[dev-dependencies]
+incorrect-authority-vuln = { path = "../02a-incorrect-authority-vuln", features = ["no-entrypoint"] }
+incorrect-authority-fix = { path = "../02b-incorrect-authority-fix", features = ["no-entrypoint"] }
+anchor-lang = { workspace = true }

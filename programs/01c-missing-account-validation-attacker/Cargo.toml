@@ -1,0 +1,20 @@
+[package]
+name = "missing-account-attacker"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "missing_account_attacker"
+
+[dependencies]
+anchor-lang = { workspace = true }
+pinocchio = "0.10.1"
+
+[dev-dependencies]
+missing-account-vuln = { path = "../01a-missing-account-validation-vuln", features = ["no-entrypoint"] }
+missing-account-fix = { path = "../01b-missing-account-validation-fix", features = ["no-entrypoint"] }
+anchor-lang = { workspace = true }
+
+[features]
+idl-build = ["anchor-lang/idl-build"]

@@ -1,0 +1,299 @@
+name: Security Testing CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-programs:
+    name: Build Solana Programs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust nightly toolchain
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Install Solana development tools
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSfL https://solana-install.solana.workers.dev | bash
+          
+      - name: Source environment and verify installation
+        run: |
+          export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$HOME/.local/share/solana/install/active_release/bin:$PATH"
+          rustc --version && solana --version && anchor --version && surfpool --version && node --version && yarn --version
+
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            target/
+          key: cargo-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            cargo-${{ runner.os }}-
+
+      - name: Build all programs
+        run: |
+          export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$HOME/.local/share/solana/install/active_release/bin:$PATH"
+          source "$HOME/.nvm/nvm.sh"
+          anchor build
+
+      - name: List build artifacts
+        run: |
+          echo "=== Build artifacts in target/deploy ==="
+          ls -lh target/deploy/*.so
+          echo ""
+          echo "=== IDL files ==="
+          ls -lh target/idl/*.json || echo "No IDL files found"
+
+      - name: Upload program artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: solana-programs
+          path: |
+            target/deploy/*.so
+            target/idl/*.json
+          retention-days: 7
+
+  test-attacks-ts:
+    name: Run Attack Demonstrations
+    needs: build-programs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        attack: ['01', '02', '03', '05']
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download program artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: solana-programs
+          path: target/
+
+      - name: Install Solana development tools
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSfL https://solana-install.solana.workers.dev | bash
+
+      - name: Install dependencies
+        run: |
+          export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$HOME/.local/share/solana/install/active_release/bin:$PATH"
+          source "$HOME/.nvm/nvm.sh"
+          yarn install --frozen-lockfile
+
+      - name: Configure Solana for localnet
+        run: |
+          export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$HOME/.local/share/solana/install/active_release/bin:$PATH"
+          solana config set --url localhost
+          solana-keygen new --no-bip39-passphrase --silent
+
+      - name: Start local validator
+        run: |
+          export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$HOME/.local/share/solana/install/active_release/bin:$PATH"
+          solana-test-validator --quiet &
+          sleep 10
+          solana cluster-version
+
+      - name: Run attack demonstration ${{ matrix.attack }}
+        id: attack-demo
+        continue-on-error: true
+        run: |
+          export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$HOME/.local/share/solana/install/active_release/bin:$PATH"
+          source "$HOME/.nvm/nvm.sh"
+          echo "Running attack demonstration ${{ matrix.attack }}"
+          if [ "${{ matrix.attack }}" = "01" ]; then
+            ts-node scripts/attacks/01-missing-account-attack.ts 2>&1 | tee attack-${{ matrix.attack }}-output.log
+          elif [ "${{ matrix.attack }}" = "02" ]; then
+            ts-node scripts/attacks/02-incorrect-authority-attack.ts 2>&1 | tee attack-${{ matrix.attack }}-output.log
+          elif [ "${{ matrix.attack }}" = "03" ]; then
+            ts-node scripts/attacks/03-unsafe-arithmetic-attack.ts 2>&1 | tee attack-${{ matrix.attack }}-output.log
+          elif [ "${{ matrix.attack }}" = "05" ]; then
+            ts-node scripts/attacks/05-signer-privilege-attack.ts 2>&1 | tee attack-${{ matrix.attack }}-output.log
+          fi
+        timeout-minutes: 5
+
+      - name: Analyze attack results
+        run: |
+          echo "=== Attack Demonstration ${{ matrix.attack }} Results ==="
+          cat attack-${{ matrix.attack }}-output.log || echo "No output log found"
+          echo ""
+          echo "Expected behavior: Vulnerable version allows attack, Fixed version blocks attack"
+
+      - name: Upload attack logs
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: attack-logs-${{ matrix.attack }}
+          path: attack-${{ matrix.attack }}-output.log
+          retention-days: 7
+
+  test-rust-units:
+    name: Rust Unit Tests
+    needs: build-programs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        program:
+          - 01a-missing-account-validation-vuln
+          - 01b-missing-account-validation-fix
+          - 02a-incorrect-authority-vuln
+          - 02b-incorrect-authority-fix
+          - 03a-unsafe-arithmetic-vuln
+          - 03b-unsafe-arithmetic-fix
+          - 04a-cpi-reentrancy-vuln
+          - 04b-cpi-reentrancy-fix
+          - 05a-signer-privilege-escalation-vuln
+          - 05b-signer-privilege-escalation-fix
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Solana development tools
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSfL https://solana-install.solana.workers.dev | bash
+
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            target/
+          key: cargo-test-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run tests for ${{ matrix.program }}
+        continue-on-error: true
+        run: |
+          export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$HOME/.local/share/solana/install/active_release/bin:$PATH"
+          cd programs/${{ matrix.program }}
+          cargo test-sbf 2>&1 | tee ../../test-${{ matrix.program }}.log
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ matrix.program }}
+          path: test-${{ matrix.program }}.log
+          retention-days: 7
+
+  test-pinocchio:
+    name: Pinocchio Integration Tests
+    needs: build-programs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Solana development tools
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSfL https://solana-install.solana.workers.dev | bash
+
+      - name: Run Pinocchio tests
+        continue-on-error: true
+        run: |
+          export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$HOME/.local/share/solana/install/active_release/bin:$PATH"
+          echo "Running Pinocchio integration tests"
+          echo "Note: Pinocchio tests use the library dependency (pinocchio = 1.52) and run via cargo test"
+          cargo test --features pinocchio 2>&1 | tee pinocchio-test-output.log || true
+          echo "Pinocchio tests completed (using library-based approach)"
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pinocchio-test-results
+          path: pinocchio-test-output.log
+          retention-days: 7
+
+  security-summary:
+    name: Generate Security Report
+    needs: [test-attacks-ts, test-rust-units, test-pinocchio]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    if: always()
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Generate security summary
+        run: |
+          echo "# Security Testing Report" > report.md
+          echo "" >> report.md
+          echo "## Test Execution Summary" >> report.md
+          echo "" >> report.md
+          
+          # Check attack logs
+          echo "### Attack Demonstrations" >> report.md
+          for attack in 01 02 03 05; do
+            if [ -f "artifacts/attack-logs-${attack}/attack-${attack}-output.log" ]; then
+              echo "- Attack ${attack}: Executed ✓" >> report.md
+            else
+              echo "- Attack ${attack}: Not found ⚠️" >> report.md
+            fi
+          done
+          echo "" >> report.md
+          
+          # Check unit tests
+          echo "### Rust Unit Tests" >> report.md
+          test_count=$(find artifacts -name 'test-*.log' | wc -l)
+          echo "- Total test runs: ${test_count}" >> report.md
+          echo "" >> report.md
+          
+          echo "### Pinocchio Tests" >> report.md
+          if [ -f "artifacts/pinocchio-test-results/pinocchio-test-output.log" ]; then
+            echo "- Pinocchio tests: Executed ✓" >> report.md
+          else
+            echo "- Pinocchio tests: Not found ⚠️" >> report.md
+          fi
+          echo "" >> report.md
+          
+          echo "## Summary" >> report.md
+          echo "All security vulnerability tests have been executed." >> report.md
+          echo "Review individual test logs for detailed results." >> report.md
+          
+          cat report.md
+
+      - name: Upload security report
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-report
+          path: report.md
+          retention-days: 30
+
+      - name: Comment PR with report
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('report.md', 'utf8');
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: report
+            });

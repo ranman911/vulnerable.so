@@ -1,0 +1,32 @@
+[toolchain]
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.devnet]
+missing-account-vuln = "6sjZ7wWgajdq4nEvELSUo3snrUbYepXJP5R9Nxfyn4B4"
+missing-account-fix = "CUWjUioM1BtRXQoqSdmcAAXQd6R9oVgACLQJ2Yau3bjS"
+missing-account-attacker = "FhW8tcBw2gxDwy88nfgYHMCrPDhZ4tHQvNpY4MrD1Fg7"
+incorrect-authority-vuln = "E8tY8PCAPcuNY2PzQ3Ay753cA4jMbprigxpN6FvSbzUD"
+incorrect-authority-fix = "5fNZJ4xXcLX1FWcoaMCA468AKEcMqy6wrRMU2urywAiK"
+incorrect-authority-attacker = "6zpRWbwnJbNMeJr8mxhJE9pGSYzy4381nzcXcVTcDQtq"
+unsafe-arithmetic-vuln = "DNKTzrZtjr7FN7ZU1HkYeqsuwMJwifbpRtRikVpDzxAt"
+unsafe-arithmetic-fix = "AP2jUEHxRv2KgxHWFBdfS362NtjFQvWA5EzgwtzmDy4e"
+unsafe-arithmetic-attacker = "C1erxddwwrz2ttuqjGbe2BmrjCw2Qn3GsQA3nf3T2wkk"
+cpi-reentrancy-vuln = "8fcy1tdBMgUQBHkX5226k9F6BFKji2x82D8t4JRP7CkV"
+cpi-reentrancy-fix = "9DuqivUMHXR9zDknqp2FcnnRfPv6vgPkty6tcZcFT1z7"
+cpi-reentrancy-attacker = "CyqpEJ3GVbEnCGZTdHRyMf4hFTrKpgGpRAVdMuoj9b68"
+signer-privilege-vuln = "2nFkzaXmTLcMRCSnY69N8sLnrrV7EaPNZ2qUEwc4kTB3"
+signer-privilege-fix = "2WaUZF4ia7SApLzQY6DHN2qbc3LE8WEsDU3pTr6iupB9"
+signer-privilege-attacker = "BUpRCbMnYV3kTTqXbdXJ4KcnzcoxSk7G1iYK2xNEoiHW"
+
+[registry]
+url = "https://anchor.projectserum.com"
+
+[provider]
+cluster = "devnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+test = "anchor test"
